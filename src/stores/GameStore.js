@@ -5,6 +5,19 @@ import TruffleContract from 'truffle-contract';
 import TournamentContract from '../contracts/Tournament.json';
 import TournamentFactory from '../contracts/TournamentContractFactory.json';
 
+async function postHashRequest(buffer) {
+  const rawResponse = await fetch('http://localhost:3939/api/ipfs', {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: buffer
+  });
+  const ipfsHash = await rawResponse.json();
+  return ipfsHash;
+}
+
 class GameStore {
     constructor(rootStore) {
         this._rootStore = rootStore;
@@ -27,18 +40,7 @@ class GameStore {
         this.hoveredTeamId = team
    }
 
-   postHashRequest = async (buffer) => {
-    const rawResponse = await fetch('https://tourney-mint-server.herokuapp.com/api/ipfs', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: buffer
-    });
-    const ipfsHash = await rawResponse.json();
-    return ipfsHash;
-   }
+
  
    @action
    initTournament = (participants, name) => {
@@ -113,8 +115,8 @@ class GameStore {
         this.gameSelected = {};
         this.tournament._listenGames();
         
-        const buffer = Buffer(JSON.stringify(this.tournament));
-        const ipfsHash = await this.postHashRequest(buffer);
+        const buffer = JSON.stringify(this.tournament);
+        const ipfsHash = await postHashRequest(buffer);
         const storedResponse = await this.contract.storeGameHash(ipfsHash, { from: accounts[0] });
         console.log(storedResponse);
         console.log(`HASH: ${ipfsHash}`);
@@ -147,8 +149,8 @@ class GameStore {
              const participants = await this.getParticipants();
              const tournamentName = await this.getTournamentName();
              await this.initTournament(participants.map(x=>BytesToString(x)), tournamentName);
-             const buffer = Buffer(JSON.stringify(toJS(this.tournament)));
-             const ipfsHash = await this.postHashRequest(buffer);
+             const buffer = JSON.stringify(toJS(this.tournament));
+             const ipfsHash = await postHashRequest(buffer);
              const storedResponse = await this.contract.storeGameHash(ipfsHash, { from: accounts[0] });
              console.log(storedResponse);
              console.log(`HASH: ${ipfsHash}`);
