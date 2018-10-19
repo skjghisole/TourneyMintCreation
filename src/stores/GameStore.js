@@ -4,12 +4,10 @@ import { StringToBytes, BytesToString } from '../utils';
 import TruffleContract from 'truffle-contract';
 import TournamentContract from '../contracts/Tournament.json';
 import TournamentFactory from '../contracts/TournamentContractFactory.json';
-import ipfs from '../ipfs';
 
 class GameStore {
-    constructor(rootStore, client) {
+    constructor(rootStore) {
         this._rootStore = rootStore;
-        this._client = client;
     }
 
     @observable tournament;
@@ -24,10 +22,22 @@ class GameStore {
     @observable hasChampion = false;
     @observable redirect = undefined;
 
-
    @action
    hoverTeamChange = (team) => {
         this.hoveredTeamId = team
+   }
+
+   postHashRequest = async (buffer) => {
+    const rawResponse = await fetch('https://tourney-mint-server.herokuapp.com/api/ipfs', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: buffer
+    });
+    const ipfsHash = await rawResponse.json();
+    return ipfsHash;
    }
  
    @action
@@ -92,7 +102,7 @@ class GameStore {
     }
 
     @action
-    submitScores = (_game) => {
+    submitScores = async (_game) => {
         const { accounts } = this._rootStore.providerStore;
         if(!this.contract){
             return;
@@ -104,17 +114,12 @@ class GameStore {
         this.tournament._listenGames();
         
         const buffer = Buffer(JSON.stringify(this.tournament));
-        ipfs.files.add(buffer, async (error, result) => {
-            if(error) {
-                console.error(error)
-                return
-            }
-            const storedResponse = await this.contract.storeGameHash(result[0].hash, { from: accounts[0] });
-            console.log(storedResponse);
-            console.log(`HASH: ${result[0].hash}`);
-            const getStoredHash = await this.contract.getGameHash();
-            console.log(`HASH FROM CONTRACT: ${getStoredHash}`);
-        })
+        const ipfsHash = await this.postHashRequest(buffer);
+        const storedResponse = await this.contract.storeGameHash(ipfsHash, { from: accounts[0] });
+        console.log(storedResponse);
+        console.log(`HASH: ${ipfsHash}`);
+        const getStoredHash = await this.contract.getGameHash();
+        console.log(`HASH FROM CONTRACT: ${getStoredHash}`);
     }
 
     @action
@@ -143,19 +148,12 @@ class GameStore {
              const tournamentName = await this.getTournamentName();
              await this.initTournament(participants.map(x=>BytesToString(x)), tournamentName);
              const buffer = Buffer(JSON.stringify(toJS(this.tournament)));
-             ipfs.files.add(buffer, async (error, result) => {
-                 if(error) {
-                     console.error(error)
-                     return
-                 }
-                 const storedResponse = await this.contract.storeGameHash(result[0].hash, { from: accounts[0] });
-                 console.log(storedResponse);
-                 console.log(`HASH: ${result[0].hash}`);
-                 const getStoredHash = await this.contract.getGameHash();
-                 console.log(`HASH FROM CONTRACT: ${getStoredHash}`);
-                 return;
-             });
-             return;
+             const ipfsHash = await this.postHashRequest(buffer);
+             const storedResponse = await this.contract.storeGameHash(ipfsHash, { from: accounts[0] });
+             console.log(storedResponse);
+             console.log(`HASH: ${ipfsHash}`);
+             const getStoredHash = await this.contract.getGameHash();
+             console.log(`HASH FROM CONTRACT: ${getStoredHash}`);
         }
     }
 
@@ -208,7 +206,15 @@ class GameStore {
       const data = dynamicData[mainField];
       const tournamentName = dynamicData[`${mainField}-tournamentName`];
       const teamNames = data.map(x => StringToBytes(x.teamName));
-      const contractAddress = await this._client.service('/api/contracts').create({});
+
+      const rawResponse = await fetch('https://tourney-mint-server.herokuapp.com/api/contracts', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+      });
+      const contractAddress = await rawResponse.json();
       const Contract = await TruffleContract(TournamentFactory);
       Contract.setProvider(web3.currentProvider);
       const contract = Contract.at(contractAddress);

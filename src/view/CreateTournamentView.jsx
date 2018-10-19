@@ -74,7 +74,7 @@ const CreateTournamentView = ({ classes, formStore, gameStore }) => {
 				</Paper>
 				<br/>
 				<Grid item sm={12} md={12}>
-					<Button fullWidth onClick={() => createGame(module, mainField)}>Set Players</Button>
+					<Button fullWidth onClick={() => createGame(module, mainField)}>Generate Tournament</Button>
 				</Grid>
 				{
 					redirect && <Redirect to={`/tournament/${redirect}`} />
