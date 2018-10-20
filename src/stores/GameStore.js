@@ -6,7 +6,7 @@ import TournamentContract from '../contracts/Tournament.json';
 import TournamentFactory from '../contracts/TournamentContractFactory.json';
 
 async function postHashRequest(buffer) {
-  const rawResponse = await fetch('http://localhost:3939/api/ipfs', {
+  const rawResponse = await fetch('https://tourney-mint-server.herokuapp.com/api/ipfs', {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
