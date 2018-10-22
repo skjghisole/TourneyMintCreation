@@ -34,6 +34,7 @@ class GameStore {
     @observable timeLeft;
     @observable hasChampion = false;
     @observable redirect = undefined;
+    @observable _dateToStart;
 
    @action
    hoverTeamChange = (team) => {
@@ -41,6 +42,29 @@ class GameStore {
    }
 
 
+   @action
+   clearContract = () => {
+    this.contract = undefined;
+    this.tournament = undefined;
+   }
+
+  @action
+  contractTournamentListener = () => {
+    if(!this.contract) {
+      return;
+    }
+    const {
+      SetTournamentStatus,
+    } = this.contract;
+    const status = SetTournamentStatus();
+    status.watch((err, result) => {
+      if(err) {
+        console.log(`status watch: ${err}`);
+      } 
+      console.log(result.args.status);
+      this.status = result.args.status;
+    });
+  }
  
    @action
    initTournament = (participants, name) => {
@@ -67,8 +91,11 @@ class GameStore {
    @action
    listenChampion = () => {
        const { contract, _rootStore: { providerStore: { accounts } } } = this;
-
-       this.tournament && this.tournament.on("tournamentChampion", async (res) => {
+       if (!this.tournament) {
+          return;
+       }
+       this.tournament._listenGames();
+       this.tournament.on("tournamentChampion", async (res) => {
            if(this.hasChampion) {
                return;
            }
@@ -114,11 +141,12 @@ class GameStore {
         _game.setScore(homeScore, visitorScore);
         this._rootStore.uiStore.closeDialog();
         this.gameSelected = {};
-        this.tournament._listenGames();
-        
         const buffer = JSON.stringify(this.tournament);
         const ipfsHash = await postHashRequest(buffer);
         const storedResponse = await this.contract.storeGameHash(ipfsHash, { from: accounts[0] });
+        if (storedResponse) {
+
+        }
         console.log(storedResponse);
         console.log(`HASH: ${ipfsHash}`);
         const getStoredHash = await this.contract.getGameHash();
@@ -184,9 +212,6 @@ class GameStore {
             return;
         }
         const tournamentStatus = await this.contract.getTournamentStatus();
-        if(tournamentStatus === 'betting') {
-            this.getTimeLeft();
-        }
         this.status = tournamentStatus;
     }
 
@@ -200,6 +225,19 @@ class GameStore {
         }
         const timeLeft = await this.contract.dateToStart();
         this.timeLeft = timeLeft.toNumber();
+    }
+
+    @action
+    setDateToStart = async () => {
+      if(!this.contract || this.status !== 'betting') {
+        return;
+      }
+      const dateToStart = !this._dateToStart ? await this.contract.dateToStart() : this._dateToStart;
+      if (dateToStart * 1000 < Date.now()) {
+        this._dateToStart = 0;
+      } else {
+        this._dateToStart = dateToStart;
+      }
     }
 
     @action
@@ -217,31 +255,29 @@ class GameStore {
           'Content-Type': 'application/json'
         },
       });
-      const contractAddress = await rawResponse.json();
+      const factoryAddress = await rawResponse.json();
       const Contract = await TruffleContract(TournamentFactory);
       Contract.setProvider(web3.currentProvider);
-      const contract = Contract.at(contractAddress);
-      const tournamentContract = await contract.createTournament(tournamentName, teamNames, { from: accounts[0] });
+      const factoryContract = Contract.at(factoryAddress);
+      const tournamentContract = await factoryContract.createTournament(tournamentName, teamNames, { from: accounts[0] });
       const tournamentAddress = tournamentContract.logs[0].args.tournamentContract;
       this.redirect = tournamentAddress;
     }
 
     @action
     openBettingWindow = async () => {
-        const { accounts, connect } = this._rootStore.providerStore;
-        connect();
+        const { accounts } = this._rootStore.providerStore;
         if(!this.contract) {
             return;
         } 
-        const response = await this.contract.openBettingWindow({ from: accounts[0] });
-        console.log(response);
-        this.getTimeLeft();
+        await this.contract.openBettingWindow({ from: accounts[0] });
+        this.contractTournamentListener();
+        this.setDateToStart();
     }
 
     @action
     startTournament = async () => {
-        const { accounts, connect } = this._rootStore.providerStore;
-        connect();
+        const { accounts } = this._rootStore.providerStore;
         if(!this.contract) {
             return;
         } 
@@ -249,6 +285,7 @@ class GameStore {
         const participants = await this.getParticipants();
         const tournamentName = await this.getTournamentName();
         this.initTournament(participants, tournamentName)
+        this.contractTournamentListener();
     }
 };
 

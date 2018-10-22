@@ -17,18 +17,23 @@ class Tournament extends Component {
 
   async componentDidMount() {
     const { gameStore } = this.props;
-    const { getTournamentStatus, listenGames, listenChampion } = gameStore;
+
+    const { listenChampion, setDateToStart } = gameStore;
     setInterval(() => {
-      listenGames()
-      getTournamentStatus()
-      listenChampion()
+      listenChampion();
+      setDateToStart();
     }, 2500);
   }
 
+  componentWillUnmount() {
+    const { gameStore } = this.props;
+    const { clearContract } = gameStore;
+    clearContract();
+  }
 
   render() {
     const { gameStore } = this.props;
-    const { game, tournamentChampion, tournament, status, timeLeft, openBettingWindow, startTournament } = gameStore;
+    const { game, tournamentChampion, tournament, status, openBettingWindow, startTournament, _dateToStart } = gameStore;
     return <Grid container justify={"center"} alignContent={"center"} direction="column">
             <h1>Tournament Status: {status}</h1>
             <Grid item sm={12}>
@@ -37,8 +42,13 @@ class Tournament extends Component {
                 <Button variant="outlined" onClick={()=>openBettingWindow()}>Open Betting Window</Button>
               }
               {
-                status === 'betting' && (timeLeft > 0 && timeLeft*1000 > Date.now() ? <TimeAgo date={timeLeft*1000}/>  : <Button variant="outlined" onClick={()=>startTournament()}>Start Tournament</Button>)
+                status === 'betting'
+                  && (_dateToStart 
+                  ? <TimeAgo date={_dateToStart*1000} />
+                  : _dateToStart === 0
+                  && <Button variant="outlined" onClick={()=>startTournament()}>Start Tournament</Button>)
               }
+
             </Grid>
             <Grid item sm={12}>
               {status === "ongoing" && game ? <Bracket 

@@ -6,6 +6,7 @@ import logo from './favicon.ico';
 import './App.css';
 import Dialog from './components/GameComponent/GameComponentDialog';
 import RoutedApp from './routes';
+import { withRouter } from 'react-router-dom';
 
 
 
@@ -30,4 +31,4 @@ class App extends Component {
   }
 }
 
-export default inject('gameStore', 'providerStore')(observer(App));
+export default withRouter(inject('gameStore', 'providerStore')(observer(App)));

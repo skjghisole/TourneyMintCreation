@@ -1,5 +1,5 @@
 import React from 'react';
-import { Route, Switch, withRouter } from 'react-router-dom';
+import { Route, Switch } from 'react-router-dom';
 import Home from '../view/Home';
 import PageNotFound from '../view/PageNotFound';
 import CreateTournament from '../view/CreateTournamentView';
@@ -18,4 +18,4 @@ const RoutedApp = () => (
   </div>
 )
 
-export default withRouter(RoutedApp);
+export default RoutedApp;
