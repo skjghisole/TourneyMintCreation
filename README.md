@@ -1,4 +1,4 @@
-#Tourneymint Contract/Tournament Creation (Client)
+# Tourneymint Contract/Tournament Creation (Client)
 
 
 https://tourneymint-create.netlify.com
